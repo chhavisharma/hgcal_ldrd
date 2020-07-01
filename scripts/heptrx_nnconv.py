@@ -35,9 +35,10 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('using device %s'%device)
 
 import logging
-    
-def main(args):    
+import pdb
 
+def main(args):    
+    pdb.set_trace()
     path = osp.join(os.environ['GNN_TRAINING_DATA_ROOT'], args.dataset)
     print(path)
     full_dataset = HitGraphDataset(path, directed=directed, categorical=args.categorized)
@@ -45,8 +46,10 @@ def main(args):
     tv_frac = 0.20
     tv_num = math.ceil(fulllen*tv_frac)
     splits = np.cumsum([fulllen-tv_num,0,tv_num])
-    print(fulllen, splits)
-    
+   
+    splits = [ int(i) for i in splits]
+    print('fulllen:', fulllen,' splits:', splits)
+
     train_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=0,stop=splits[0]))
     valid_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=splits[1],stop=splits[2]))
     train_loader = DataLoader(train_dataset, batch_size=train_batch_size, pin_memory=True)
