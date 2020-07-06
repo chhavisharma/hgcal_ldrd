@@ -18,7 +18,7 @@ import numpy as np
 from models import get_model, get_losses
 # Locals
 from .base import base
-
+import pdb
 
 class GNNTrainer(base):
     """Trainer code for basic classification problems with binomial cross entropy."""
@@ -70,9 +70,15 @@ class GNNTrainer(base):
         acc_loss = 0.
         
         self.optimizer.zero_grad()
+
+       # pdb.set_trace()
+
         for i,data in t:            
             data = data.to(self.device)
+            
             batch_target = data.y
+            batch_target = batch_target.type('torch.cuda.LongTensor')
+            
             if self.loss_func == F.binary_cross_entropy:
                 #binary cross entropy expects a weight for each event in a batch
                 #categorical cross entropy ex
@@ -140,6 +146,8 @@ class GNNTrainer(base):
             # self.logger.debug(' batch %i', i)
             batch_input = data.to(self.device)
             batch_target = data.y
+            batch_target = batch_target.type('torch.cuda.LongTensor')
+
             batch_output = self.model(batch_input)
             batch_loss = self.loss_func(batch_output, batch_target)
             sum_loss += batch_loss.item()

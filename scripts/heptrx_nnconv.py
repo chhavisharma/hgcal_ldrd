@@ -46,12 +46,12 @@ def main(args):
     tv_frac = 0.20
     tv_num = math.ceil(fulllen*tv_frac)
     splits = np.cumsum([fulllen-tv_num,0,tv_num])
-   
-    splits = [ int(i) for i in splits]
+    pdb.set_trace()  
+    splits = splits.astype(np.int32)
     print('fulllen:', fulllen,' splits:', splits)
 
-    train_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=0,stop=splits[0]))
-    valid_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=splits[1],stop=splits[2]))
+    train_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=0,stop=splits[0]).tolist() )
+    valid_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=splits[1],stop=splits[2]).tolist() )
     train_loader = DataLoader(train_dataset, batch_size=train_batch_size, pin_memory=True)
     valid_loader = DataLoader(valid_dataset, batch_size=valid_batch_size, shuffle=False)
 
@@ -93,7 +93,7 @@ def main(args):
                         output_dim=num_classes)
     
     trainer.print_model_summary()
-        
+    pdb.set_trace()    
     train_summary = trainer.train(train_loader, n_epochs, valid_data_loader=valid_loader)
     
     print(train_summary)
