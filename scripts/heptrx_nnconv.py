@@ -19,6 +19,8 @@ from datasets.hitgraphs import HitGraphDataset
 
 import tqdm
 import argparse
+from datetime import datetime
+
 directed = False
 sig_weight = 1.0
 bkg_weight = 1.0
@@ -38,7 +40,7 @@ import logging
 import pdb
 
 def main(args):    
-    pdb.set_trace()
+    #pdb.set_trace()
     path = osp.join(os.environ['GNN_TRAINING_DATA_ROOT'], args.dataset)
     print(path)
     full_dataset = HitGraphDataset(path, directed=directed, categorical=args.categorized)
@@ -46,7 +48,7 @@ def main(args):
     tv_frac = 0.20
     tv_num = math.ceil(fulllen*tv_frac)
     splits = np.cumsum([fulllen-tv_num,0,tv_num])
-    pdb.set_trace()  
+    #pdb.set_trace()  
     splits = splits.astype(np.int32)
     print('fulllen:', fulllen,' splits:', splits)
 
@@ -71,7 +73,7 @@ def main(args):
 
     the_weights = np.array([1., 1., 1., 1.]) #[0.017, 1., 1., 10.]
     trainer = GNNTrainer(category_weights = the_weights, 
-                         output_dir='/home/lagray/hgcal_ldrd/', device=device)
+                         output_dir='./models/', device=device)
 
     trainer.logger.setLevel(logging.DEBUG)
     strmH = logging.StreamHandler()
@@ -93,11 +95,17 @@ def main(args):
                         output_dim=num_classes)
     
     trainer.print_model_summary()
-    pdb.set_trace()    
+       
     train_summary = trainer.train(train_loader, n_epochs, valid_data_loader=valid_loader)
     
     print(train_summary)
-    
+
+    with open(args.logger, 'a+') as f:
+        f.write(datetime.now())
+        for k in train_summary.keys():
+            f.write('\n'+k+'\n')
+            f.write(str(train_summary[k]))
+            f.write('\n')
 
 if __name__ == "__main__":
 
@@ -112,6 +120,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', default=64, type=int, help='Latent space size.')
     parser.add_argument('--n_iters', default=6, type=int, help='Number of times to iterate the graph.')
     parser.add_argument('--dataset', '-d', default='single_photon')
+    parser.add_argument('--logger', '-g', default='./logs/ftrainlogs_002.txt')
     
     args = parser.parse_args()
     main(args)
