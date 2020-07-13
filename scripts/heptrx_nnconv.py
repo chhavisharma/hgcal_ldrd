@@ -101,7 +101,7 @@ def main(args):
     print(train_summary)
 
     with open(args.logger, 'a+') as f:
-        f.write(datetime.now())
+        f.write(str(datetime.now()))
         for k in train_summary.keys():
             f.write('\n'+k+'\n')
             f.write(str(train_summary[k]))
