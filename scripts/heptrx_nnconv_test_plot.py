@@ -20,10 +20,11 @@ import argparse
 
 # from models.gnn_geometric import GNNSegmentClassifierG as Net
 from models.gnn_geometric import GNNSegmentClassifier as Net
-
 from models.EdgeNet import EdgeNet
 
-from heptrx_nnconv import test
+# from heptrx_nnconv import test
+# from heptrx_nnconv import test
+# from training.gnn import _test
 
 from datasets.graph import draw_sample
 
@@ -46,7 +47,7 @@ def main(args):
     
     directed = False
     # path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'training_data', 'single_mu')
-    path = osp.join(osp.dirname(os.environ['GNN_TRAINING_DATA_ROOT'], args.dataset))
+    path = osp.join(osp.dirname(os.environ['GNN_TRAINING_DATA_ROOT']), args.dataset)
 
     # full_dataset = HitGraphDatasetG(path, directed=directed)
     full_dataset = HitGraphDataset(path, directed=directed)
@@ -153,9 +154,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Required positional arguments
-    parser.add_argument("--model_weights", default='model_checkpoint_EdgeNetWithCategories_264403_5b5c05404f_csharma.best.pth.tar', help="model PyTorch state dict file [*.pth]")
-    parser.add_argument("--model", dafault = 'EdgeNetWithCategories'  , help="Model Name")
-    parser.add_argument('--dataset', '-d', default='./single_photon')
+    parser.add_argument("--model_weights", default = 'model_checkpoint_EdgeNetWithCategories_264403_5b5c05404f_csharma.best.pth.tar', help="model PyTorch state dict file [*.pth]")
+    parser.add_argument("--model", default = 'EdgeNetWithCategories'  , help="Model Name")
+    parser.add_argument('--dataset', '-d', default = './data/single_photon')
 
     args = parser.parse_args()
     main(args)
