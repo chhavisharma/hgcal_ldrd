@@ -6,7 +6,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+# from datasets.hitgraphs import HitGraphDatasetG
 from datasets.hitgraphs import HitGraphDatasetG
+
 import torch_geometric.transforms as T
 from torch_geometric.data import DataLoader
 from torch_geometric.utils import normalized_cut
@@ -26,6 +29,8 @@ import awkward
 import matplotlib.pyplot as plt
 import scipy.stats as stats
 
+import pdb 
+
 batch_size = 32
 hidden_dim = 64
 n_iters = 6
@@ -34,9 +39,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print('using device %s'%device)
 
 def main(args):
+
+    pdb.set_trace()
     
     directed = False
-    path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'training_data', 'single_mu')
+    # path = osp.join(osp.dirname(osp.realpath(__file__)), '..', 'training_data', 'single_mu')
+    path = osp.join(osp.dirname(os.environ['GNN_TRAINING_DATA_ROOT'], args.dataset))
+
     full_dataset = HitGraphDatasetG(path, directed=directed)
     fulllen = len(full_dataset)
     tv_frac = 0.10
@@ -139,6 +148,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Required positional arguments
-    parser.add_argument("model", help="model PyTorch state dict file [*.pth]")
+    parser.add_argument("--model", help="model PyTorch state dict file [*.pth]")
+    parser.add_argument('--dataset', '-d', default='single_photon')
+
     args = parser.parse_args()
     main(args)
