@@ -28,23 +28,8 @@ def sparse_to_graph(X, Ri_rows, Ri_cols, Ro_rows, Ro_cols, y, dtype=np.float32):
 
     return spRi, spRo, y
 
-
-
-
-
 if __name__ == "__main__":
-    
-    data = np.load('./../../data/raw/partGun_PDGid15_x1000_Pt3.0To100.0_NTUP_2_hgcal_graph_pos_evt71.npz')
-    
-    print(data)
-    keys = [k for k in data.keys()]
 
-    print('Keys',keys)
-    for k in keys:
-        print(k,':',data[k].shape)
-
-    #X = data[keys[0]]
-    
     ''' Read Files '''
     events = []
     root = './../../data/raw/'
@@ -54,11 +39,19 @@ if __name__ == "__main__":
             events.append(path)
 
     for itr,event_path in enumerate(events):
-        
+
+        if(itr==20):
+            break
+
         print('event:',itr)
+        print('path: ',event_path)
 
         item  = np.load(event_path)
-        
+
+        keys = [k for k in item.keys()]
+        for k in keys: 
+            print(k,':',item[k].shape)
+
         x = item['X'][:,0]
         y = item['X'][:,1]
         z = item['X'][:,2]
@@ -71,65 +64,73 @@ if __name__ == "__main__":
         Ri_cols = item['Ri_cols']
         Ro_rows = item['Ro_rows']        
         Ro_cols = item['Ro_cols']
+
+        # spRi, spRo, ytruth = sparse_to_graph(x, Ri_rows, Ri_cols, Ro_rows, Ro_cols, ytruth)
+        # print((Ri_rows==Ro_rows).all())
+        # print((Ri_cols==Ro_cols).all())
+        # print(len(Ri_rows), len(Ri_cols), len(Ro_rows), len(Ro_cols))
+        # print(min(Ri_rows), min(Ri_cols), min(Ro_rows), min(Ro_cols))
+        # print(max(Ri_rows), max(Ri_cols), max(Ro_rows), max(Ro_cols))
+
+        # get nodeid Edge pairs
+        incoming = [[z[n], y[n], x[n], n,e,c] for n, e, c in zip (Ri_rows, Ri_cols, ytruth)]
+        outgoing = [[z[n], y[n], x[n], n,e,c] for n, e, c in zip (Ro_rows, Ro_cols, ytruth)]
         
-        spRi, spRo, ytruth = sparse_to_graph(x, Ri_rows, Ri_cols, Ro_rows, Ro_cols, ytruth)
+        # sort by edge id
+        sin = sorted(incoming, key=lambda x: x[4])
+        sot = sorted(outgoing,  key=lambda x: x[4])
 
-        pdb.set_trace()
-
-        point3Din = np.concatenate((z[Ri_rows,np.newaxis,np.newaxis],y[Ri_rows,np.newaxis,np.newaxis],x[Ri_rows,np.newaxis,np.newaxis]), axis=2)
-        point3Dout = np.concatenate((z[Ro_rows,np.newaxis,np.newaxis],y[Ro_rows,np.newaxis,np.newaxis],x[Ro_rows,np.newaxis,np.newaxis]), axis=2)
-        segments = np.concatenate((point3Din, point3Dout), axis=1)
-
-        pdb.set_trace()
-
-        '''
         # Creating figure 
         fig = plt.figure(figsize = (20, 9)) 
-        ax1 = fig.add_subplot(121,projection='3d')
-        ax2 = fig.add_subplot(122,projection='3d')
+        ax1 = fig.add_subplot(121,projection='3d')   
+        ax2 = fig.add_subplot(122,projection='3d')   
                 
         #Axis 1 - hits 
         ax1.set_xlabel('Z-axis', fontweight ='bold')  
         ax1.set_ylabel('Y-axis', fontweight ='bold')  
-        ax1.set_zlabel('X-axis', fontweight ='bold') 
-        ax1.scatter3D(z, y, x, s=1, color = "green"); 
+        ax1.set_zlabel('X-axis', fontweight ='bold')  
+        ax1.scatter3D(z, y, x, s=1, color = "green")  
 
         # Axis 2 - Edges
         ax2.set_xlabel('Z-axis', fontweight ='bold')  
         ax2.set_ylabel('Y-axis', fontweight ='bold')  
-        ax2.set_zlabel('X-axis', fontweight ='bold')
-        # Create the 3D-line collection object
-        print('segments' ,segments.shape)
-        segments = segments[:10]
-        for i in range(segments.shape[0]):
-            ax2.plot([segments[i,0,0], segments[i,1,0]], [segments[i,0,1], segments[i,1,1]],zs=[segments[i,0,2], segments[i,1,2]], linewidth=1,color="red")
+        ax2.set_zlabel('X-axis', fontweight ='bold')   
 
-        # show plot 
-        plt.show()
-        # plt.savefig('./'+str(i)+'_event_sample.pdf') 
+        p1s = np.array(sin[:])[:,:3]
+        p2s = np.array(sot[:])[:,:3]
+        cs = np.array(sin[:])[:,5]
         
-        '''
+        nonoise = cs!=0.0
+        cdict = {0:'grey', 1:'red', 2:'blue', 3:'green'}
+        clrs = [ cdict[int(x)] for x in cs[nonoise]]
+        # pdb.set_trace()
 
-        if(itr==2):
-            break
+        p1 = p1s[nonoise] 
+        p2 = p2s[nonoise] 
+        ls = np.hstack([p1,p2]).copy()  
+        ls = ls.reshape((-1,2,3))  
+
+        ax2.set_xlim(min(p1[:,0]), max(p1[:,0]))  
+        ax2.set_ylim(min(p1[:,1]), max(p1[:,1]))  
+        ax2.set_zlim(min(p1[:,2]), max(p1[:,2]))   
+
+        ax1.set_xlim(min(p1[:,0]), max(p1[:,0]))  
+        ax1.set_ylim(min(p1[:,1]), max(p1[:,1]))  
+        ax1.set_zlim(min(p1[:,2]), max(p1[:,2]))           
+      
+        lc = Line3DCollection(ls, linewidths=0.3, colors=clrs, alpha=0.5)
+        ax2.add_collection(lc)
+
+        plt.savefig('./'+str(itr)+'_event.pdf') 
+
+        ax2.set_xlim(min(z), max(z))  
+        ax2.set_ylim(min(y), max(y))  
+        ax2.set_zlim(min(x), max(x))   
+
+        ax1.set_xlim(min(z), max(z))  
+        ax1.set_ylim(min(y), max(y))  
+        ax1.set_zlim(min(x), max(x))         
+
+        plt.savefig('./'+str(itr)+'_event_zoom.pdf') 
         
-        #plot
-        depth = x
-        print(segments[0])
-        segments = np.array([[[1,1,1],[10,10,10]],[[1,2,3],[6,7,8]]])
-        lc = Line3DCollection(segments[:10], color='green' )#,norm=plt.Normalize(x.min(),x.max()) )
-        lc.set_linewidth(1)
-        # lc.set_array(x) 
-        fig = plt.figure()
-        
-        ax = fig.gca(projection='3d')
-        ax.set_zlim(min(x), max(x))
-        ax.set_ylim(min(y), max(y))
-        ax.set_xlim(min(z), max(z))
-
-        print('depth limits = ', min(x), max(x))
-        plt.title('3D-Figure-'+str(itr))
-        ax.add_collection3d(lc, zs=x, zdir='z')
-        plt.show()
-
-
+        # pdb.set_trace()
