@@ -146,6 +146,7 @@ class GNNTrainer(base):
             # self.logger.debug(' batch %i', i)
             batch_input = data.to(self.device)
             batch_target = data.y
+            
             batch_target = batch_target.type('torch.cuda.LongTensor')
 
             batch_output = self.model(batch_input)

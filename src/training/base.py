@@ -110,3 +110,23 @@ class base(object):
                 self.write_checkpoint(checkpoint_id=i)
 
         return self.summaries
+
+
+    def test(self, test_data_loader):
+        """Run the model testing"""
+
+        self.logger.info('Testing:')
+        summary = dict(epoch=0)            
+
+        # Evaluate on this epoch
+        if test_data_loader is not None:
+            sum_valid = self.evaluate(test_data_loader)
+            summary.update(sum_valid)
+
+            best_valid_loss = sum_valid['valid_loss']
+            self.logger.debug(' Testing loss: %.5f', best_valid_loss)               
+
+        # Save summary
+        self.save_summary(summary)
+
+        return self.summaries

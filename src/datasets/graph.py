@@ -14,8 +14,6 @@ import tqdm
 
 Graph = namedtuple('Graph', ['X', 'Ri', 'Ro', 'y', 'simmatched'])
 
-
-
 def graph_to_sparse(graph):
     Ri_rows, Ri_cols = graph.Ri.nonzero()
     Ro_rows, Ro_cols = graph.Ro.nonzero()
