@@ -196,6 +196,112 @@ class GNNTrainer(base):
         return summary
 
 
+    @torch.no_grad()
+    def testVerbose(self, data_loader):
+        """"Test the model"""
+        self.model.zero_grad()
+        torch.cuda.empty_cache()
+        self.model.eval()
+        summary = dict()
+        sum_loss = 0
+        sum_correct = 0
+        sum_total = 0
+        start_time = time.time()
+        # Loop over batches
+        total = len(data_loader.dataset)
+        batch_size = data_loader.batch_size
+        t = tqdm.tqdm(enumerate(data_loader),total=int(math.ceil(total/batch_size)))
+        num = torch.zeros_like(self._category_weights)
+        denm = torch.zeros_like(self._category_weights)
+        
+        cat_wgt_shape = self._category_weights.shape[0]
+      
+        confusion_num = torch.zeros([cat_wgt_shape,cat_wgt_shape]).to(self.device)
+        confusion_denm = torch.zeros([cat_wgt_shape,cat_wgt_shape]).to(self.device)
+        
+        plot_stats_data = []
+        plot_stats_edge = []
+        plot_stats_true = []
+        plot_stats_pred = []
+
+        for i, data in t:            
+            # self.logger.debug(' batch %i', i)
+            batch_input = data.to(self.device)
+            batch_target = data.y
+            
+            batch_target = batch_target.type('torch.cuda.LongTensor')
+
+            batch_output = self.model(batch_input)
+            batch_loss = self.loss_func(batch_output, batch_target)
+            sum_loss += batch_loss.item()
+            # Count number of correct predictions
+            #print(batch_output)
+            #print('torch.max',torch.argmax(batch_output,dim=-1))
+            
+            truth_cat_counts = torch.unique(batch_target, return_counts = True)
+            pred = torch.argmax(batch_output,dim=-1)
+            
+            for j in range(cat_wgt_shape):
+                cat_counts = torch.unique(pred[batch_target == j], return_counts=True)                
+                confusion_num[:,j][cat_counts[0]] += cat_counts[1].float()
+                confusion_denm[j,:][truth_cat_counts[0]] += truth_cat_counts[1].float()
+                        
+            matches = (pred == batch_target)
+            trues_by_cat = torch.unique(pred[matches], return_counts=True)
+            
+
+            num[trues_by_cat[0]] += trues_by_cat[1].float()
+            denm[truth_cat_counts[0]] += truth_cat_counts[1].float()
+                        
+            sum_correct += matches.sum().item()
+            sum_total += matches.numel()
+
+            
+            # ---Collect missclassifications ---
+            # pdb.set_trace()
+            # only store events with below 90% misclassification
+            # exculding true positive nosie for this computation
+
+            pred = batch_output.detach().cpu().numpy().argmax(axis=1)
+            true = data['y'].detach().cpu().numpy().astype(int)
+
+            noise_mask = np.logical_and(true != 0, pred != 0)
+
+            res = [ (t==p) for t, p in zip(true[noise_mask], pred[noise_mask])]
+            
+            if(len(res)==0): # Avoid division by zero 
+                continue
+            
+            correctness = sum(res)/len(res)
+
+            if(correctness <= 0.90):
+                # plot_stats.append(correctness)
+                plot_stats_data.append(data['x'].detach().cpu().numpy())
+                plot_stats_edge.append(data['edge_index'].detach().cpu().numpy())
+                plot_stats_true.append(data['y'].detach().cpu().numpy().astype(int))
+                plot_stats_pred.append(batch_output.detach().cpu().numpy().argmax(axis=1).astype(int))
+
+                
+        torch.cuda.empty_cache()
+
+        self.logger.debug('loss %.5f cat effs %s',sum_loss / (i + 1), np.array_str((num/denm).cpu().numpy()))
+        self.logger.debug('loss %.5f cat confusions:\n %s',
+                          sum_loss / (i + 1),
+                          np.array_str((confusion_num/confusion_denm).cpu().numpy()))
+        self.logger.debug('loss %.5f cat true counts %s',sum_loss / (i + 1), (denm).cpu().numpy())
+        self.logger.debug('loss %.5f cat wgt counts %s',sum_loss / (i + 1), (self._category_weights*denm).cpu().numpy())
+        if self.lr_scheduler is not None:
+            self.lr_scheduler.step(sum_loss / (i + 1))
+        summary['valid_time'] = time.time() - start_time
+        summary['valid_loss'] = sum_loss / (i + 1)
+        summary['valid_acc'] = sum_correct / sum_total
+        self.logger.debug(' Processed %i samples in %i batches',
+                          len(data_loader.sampler), i + 1)
+        self.logger.info('  Validation loss: %.5f acc: %.5f' %
+                         (summary['valid_loss'], summary['valid_acc']))
+        
+        return summary, [plot_stats_data, plot_stats_edge, plot_stats_true, plot_stats_pred]
+
 def _test():
     t = GNNTrainer(output_dir='./')
     t.build_model()

@@ -113,14 +113,14 @@ class base(object):
 
 
     def test(self, test_data_loader):
-        """Run the model testing"""
+        """Run model testing"""
 
         self.logger.info('Testing:')
         summary = dict(epoch=0)            
 
         # Evaluate on this epoch
         if test_data_loader is not None:
-            sum_valid = self.evaluate(test_data_loader)
+            sum_valid, plot_stats = self.testVerbose(test_data_loader)
             summary.update(sum_valid)
 
             best_valid_loss = sum_valid['valid_loss']
@@ -129,4 +129,4 @@ class base(object):
         # Save summary
         self.save_summary(summary)
 
-        return self.summaries
+        return self.summaries, plot_stats

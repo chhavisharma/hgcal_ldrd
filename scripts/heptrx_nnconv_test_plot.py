@@ -27,6 +27,13 @@ from datasets.graph import draw_sample
 import awkward
 import matplotlib.pyplot as plt
 import scipy.stats as stats
+from sklearn.metrics import confusion_matrix
+
+from  mpl_toolkits import mplot3d
+import matplotlib.pyplot as plt 
+from matplotlib.colors import ListedColormap, BoundaryNorm    
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
 import pdb 
 
@@ -79,7 +86,7 @@ def main(args):
     # load model definition
     the_weights = np.array([1., 1., 1., 1.]) #[0.017, 1., 1., 10.]
     tester = GNNTrainer(category_weights = the_weights, 
-                         output_dir='./models/', device=device)
+                        output_dir='./models/', device=device)
 
     tester.logger.setLevel(logging.DEBUG)
     strmH = logging.StreamHandler()
@@ -98,85 +105,142 @@ def main(args):
     print('Model: \n%s\nParameters: %i' % (tester.model, sum(p.numel() for p in tester.model.parameters())))
     print('Testing with %s data samples'%test_samples)
 
-    test_summary = tester.test(test_loader)
+    test_summary, plot_stats = tester.test(test_loader)
 
-    # test_loss, test_acc, test_eff, test_fp, test_fn, test_pur = test(model, test_loader, test_samples)
+    del tester
+        
+    data, edge, true, pred = plot_stats 
 
-    # print('Testing: Loss: {:.4f}, Eff.: {:.4f}, FalsePos: {:.4f}, FalseNeg: {:.4f}, Purity: {:,.4f}'.format(test_loss, test_eff, test_fp, test_fn, test_pur))
+    columns = ['Pred_Noise', 'Pred_Hadron', 'Pred_EM', 'Pred_MIP']
+    rows    = ['True_Noise', 'True_Hadron', 'True_EM', 'True_MIP']
 
-    # with open(args.logger, 'a+') as f:
-    #     f.write(str(datetime.now()))
-    #     for k in train_summary.keys():
-    #         f.write('\n'+k+'\n')
-    #         f.write(str(train_summary[k]))
-    #         f.write('\n')
+    for idx, item in enumerate(data):
 
-    # # plotting:
-    # figs = []
-    # t = tqdm.tqdm(enumerate(test_loader),total=test_samples/batch_size)
-    # out = []
-    # y = []
-    # x = []
-    # edge_index = []
-    # simmatched = []
-    # for i,data in t:
-    #     x.append(data.x.cpu().detach().numpy())
-    #     y.append(data.y.cpu().detach().numpy())
-    #     edge_index.append(data.edge_index.cpu().detach().numpy())
-    #     simmatched.append(data.simmatched.cpu().detach().numpy())
-    #     data = data.to(device)
-
-    # out = awkward.fromiter(out)
-    # x = awkward.fromiter(x)
-    # y = awkward.fromiter(y)
-    # simmatched = awkward.fromiter(simmatched)
-    # edge_index = awkward.fromiter(edge_index)
-
-    # predicted_edge = (out > 0.5)
-    # truth_edge = (y > 0.5)
-    # node_energy = x[:,:,4]
-    # node_layer = x[:,:,2]
-
-    # predicted_connected_node_indices = awkward.JaggedArray.concatenate([edge_index[:,0][predicted_edge], edge_index[:,1][predicted_edge]], axis=1)
-    # predicted_connected_node_indices = awkward.fromiter(map(np.unique, predicted_connected_node_indices))
-    # predicted_energy_sum = node_energy[predicted_connected_node_indices].sum()
-    # truth_connected_node_indices = awkward.JaggedArray.concatenate([edge_index[:,0][truth_edge],edge_index[:,1][truth_edge]], axis=1)
-    # truth_connected_node_indices = awkward.fromiter(map(np.unique, truth_connected_node_indices))
-    # truth_energy_sum = node_energy[truth_connected_node_indices].sum()
+        # pdb.set_trace()
+        
+        x = item[:,0]
+        y = item[:,1]
+        z = item[:,2]
+        E = item[:,3]
+        t = item[:,4]
+        ytrue = true[idx]
+        ypred = pred[idx]
     
-    # nonzeromask = (truth_energy_sum !=0.0)
-    # energy_captured_ratio = predicted_energy_sum[nonzeromask]/truth_energy_sum[nonzeromask]
-    
-    # fig,axes = plt.subplots(figsize=(12, 7))
-    # _, bins,_ = axes.hist(energy_captured_ratio, bins=100)
-    # plt.title("Ratio of energy sum for predicted hits/truth (preprocessed) hits")
-    # plt.ylabel("events (pos+neg)")
-    # plt.xlabel("Ratio")
-    # cut = energy_captured_ratio[(energy_captured_ratio>0.975) & (energy_captured_ratio < 1.025)] #NB: restricted fit
-    # (mu, sigma) = stats.norm.fit(cut)
-    # c_paras = stats.crystalball.fit(cut)
-    # lnspc = np.linspace(bins[0], bins[-1], len(bins))
-    # pdf_g = stats.norm.pdf(lnspc, mu, sigma)
-    # pdf_c = stats.crystalball.pdf(lnspc, *c_paras)
-    # pdf_g = pdf_g / pdf_g.sum() * len(energy_captured_ratio)
-    # pdf_c = pdf_c / pdf_c.sum() * len(energy_captured_ratio)
-    # plt.plot(lnspc, pdf_g, label="Norm, restricted fit")
-    # plt.plot(lnspc, pdf_c, label="Crystalball, restricted fit")
-    # plt.legend(loc='upper left')
-    # figs.append(fig)
+        Ri = edge[idx][0]
+        Ro = edge[idx][1]        
+  
+        # get nodeid Edge pairs
+        edge_id = np.arange(len(Ri))
+        incoming = [[z[n], y[n], x[n], n, e, t, p] for n, e, t, p in zip (Ri, edge_id, ytrue, ypred)]
+        outgoing = [[z[n], y[n], x[n], n, e, t, p] for n, e, t, p in zip (Ro, edge_id, ytrue, ypred)]
+
+        # sort by edge id
+        sin = sorted(incoming, key=lambda x: x[4])
+        sot = sorted(outgoing,  key=lambda x: x[4])
+
+        # Creating figure 
+        fig = plt.figure(figsize = (16, 10)) 
+        ax1 = fig.add_subplot(221,projection='3d')   
+        ax2 = fig.add_subplot(222,projection='3d') 
+        ax3 = fig.add_subplot(223) 
+        ax4 = fig.add_subplot(224) 
+
+        ax1.title.set_text('True: HD:red, EM:blue, MP:green')
+        ax2.title.set_text('Pred: HD:red, EM:blue, MP:green')
+        ax3.title.set_text('ConfusionMatrixCounts')
+        ax4.title.set_text('ConfusionMatrixPercent')
+        
+        ax1.set_xlabel('Z-axis', fontweight ='bold')  
+        ax1.set_ylabel('Y-axis', fontweight ='bold')  
+        ax1.set_zlabel('X-axis', fontweight ='bold')  
+        
+        ax2.set_xlabel('Z-axis', fontweight ='bold')  
+        ax2.set_ylabel('Y-axis', fontweight ='bold')  
+        ax2.set_zlabel('X-axis', fontweight ='bold')   
+
+        # ax3.set_xlabel('Z-axis', fontweight ='bold')  
+        # ax3.set_ylabel('Y-axis', fontweight ='bold')  
+        # ax3.set_zlabel('X-axis', fontweight ='bold')  
+        
+        # ax4.set_xlabel('Z-axis', fontweight ='bold')  
+        # ax4.set_ylabel('Y-axis', fontweight ='bold')  
+        # ax4.set_zlabel('X-axis', fontweight ='bold') 
+
+        p1s = np.array(sin[:])[:,:3]
+        p2s = np.array(sot[:])[:,:3]
+
+        cs_true = np.array(sin[:])[:,5].astype(int)
+        cs_pred = np.array(sin[:])[:,6].astype(int)
+        
+        mt = confusion_matrix(cs_true, cs_pred)
+        mtp = confusion_matrix(cs_true, cs_pred)/len(cs_pred)
+
+        
+        cdict = {0:'grey', 1:'red', 2:'blue', 3:'green'}
+        
+        
+        #Axis 1 - all truths --------------------
+        nonoise = cs_true!=0
+        # HDMask = cs_true==1
+        # EMMask = cs_true==2
+        # MPMask = cs_true==3
+
+        p1 = p1s[nonoise] 
+        p2 = p2s[nonoise] 
+        ls = np.hstack([p1,p2]).copy()  
+        ls = ls.reshape((-1,2,3))  
+
+        ax1.set_xlim(min(p1[:,0]), max(p1[:,0]))  
+        ax1.set_ylim(min(p1[:,1]), max(p1[:,1]))  
+        ax1.set_zlim(min(p1[:,2]), max(p1[:,2]))  
+        ax2.set_xlim(min(p1[:,0]), max(p1[:,0]))  
+        ax2.set_ylim(min(p1[:,1]), max(p1[:,1]))  
+        ax2.set_zlim(min(p1[:,2]), max(p1[:,2]))                         
+
+        clrs = [ cdict[int(x)] for x in cs_true[nonoise]]
+        lc = Line3DCollection(ls, linewidths=0.3, colors=clrs, alpha=0.5)
+        ax1.add_collection(lc)
+        
+        #Axis 2 - all preds -----------------------
+        nonoise = cs_pred!=0
+        # HDMask = cs_pred==1
+        # EMMask = cs_pred==2
+        # MPMask = cs_pred==3
+
+        p1 = p1s[nonoise] 
+        p2 = p2s[nonoise] 
+        ls = np.hstack([p1,p2]).copy()  
+        ls = ls.reshape((-1,2,3))                          
+
+        clrs = [cdict[int(x)] for x in cs_pred[nonoise]]
+        lc = Line3DCollection(ls, linewidths=0.3, colors=clrs, alpha=0.5)
+        ax2.add_collection(lc)  
 
 
-    # # visualisation
-    # idxs = [0]
-    # for idx in idxs:
-    #     fig = draw_sample(x[idx].regular(), edge_index[idx].regular()[0], edge_index[idx].regular()[1], y[idx], out[idx], sim_list=simmatched[idx])
-    #     figs.append(fig)
-    
-    # import matplotlib.backends.backend_pdf
-    # pdf = matplotlib.backends.backend_pdf.PdfPages("test_plots.pdf")
-    # for fig in figs: 
-    #     pdf.savefig(fig)
-    # pdf.close()
+        colnames = []
+        rownames =  []
+        for i in range(4):
+            if i in cs_true or i in cs_pred:
+                colnames.append(columns[i])
+                rownames.append(rows[i])
+
+        
+        #Axis 3 - Confusion Matrix -----------------
+        ax3.axis('tight')
+        ax3.axis('off')
+        # pdb.set_trace()
+        the_table = ax3.table(cellText=mt, colLabels=colnames, rowLabels=rownames, loc='center')
+
+        #Axis 4 - Confusion Matrix -----------------
+        ax4.axis('tight')
+        ax4.axis('off')
+        the_table = ax4.table(cellText=mtp, colLabels=colnames, rowLabels=rownames, loc='center')
+        
+        plt.savefig('./visData/testResults/'+str(idx)+'_event.pdf') 
+        
+        plt.close(fig)
+
+        print(idx)
 
     print('Finished')
     
@@ -194,7 +258,7 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', default=64, type=int, help='Latent space size.')
     parser.add_argument('--n_iters', default=6, type=int, help='Number of times to iterate the graph.')
     parser.add_argument('--logger', '-g', default='./logs/ftestinglogs_EdgeNetWithCategories.txt')
-    parser.add_argument('--loss', '-l', default='binary_cross_entropy', help='Loss function to use in training.')       
+    parser.add_argument('--loss', '-l', default='binary_cross_entropy', help='Loss function to use in training.')    
     
     args = parser.parse_args()
     main(args)
