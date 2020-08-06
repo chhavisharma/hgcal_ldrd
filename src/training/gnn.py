@@ -189,6 +189,8 @@ class GNNTrainer(base):
         summary['valid_time'] = time.time() - start_time
         summary['valid_loss'] = sum_loss / (i + 1)
         summary['valid_acc'] = sum_correct / sum_total
+        summary['confusion_matrix'] = (confusion_num/confusion_denm).cpu().numpy()
+
         self.logger.debug(' Processed %i samples in %i batches',
                           len(data_loader.sampler), i + 1)
         self.logger.info('  Validation loss: %.5f acc: %.5f' %
@@ -223,6 +225,7 @@ class GNNTrainer(base):
         plot_stats_edge = []
         plot_stats_true = []
         plot_stats_pred = []
+        count = [0,0,0,0]
 
         for i, data in t:            
             # self.logger.debug(' batch %i', i)
@@ -265,6 +268,12 @@ class GNNTrainer(base):
             pred = batch_output.detach().cpu().numpy().argmax(axis=1)
             true = data['y'].detach().cpu().numpy().astype(int)
 
+            count[0] = count[0] + (true==0).sum()
+            count[1] = count[1] + (true==1).sum()
+            count[2] = count[2] + (true==2).sum()
+            count[3] = count[3] + (true==3).sum()
+
+
             noise_mask = np.logical_and(true != 0, pred != 0)
 
             res = [ (t==p) for t, p in zip(true[noise_mask], pred[noise_mask])]
@@ -295,12 +304,14 @@ class GNNTrainer(base):
         summary['valid_time'] = time.time() - start_time
         summary['valid_loss'] = sum_loss / (i + 1)
         summary['valid_acc'] = sum_correct / sum_total
+        summary['confusion_matrix'] = (confusion_num/confusion_denm).cpu().numpy()
+        
         self.logger.debug(' Processed %i samples in %i batches',
                           len(data_loader.sampler), i + 1)
         self.logger.info('  Validation loss: %.5f acc: %.5f' %
                          (summary['valid_loss'], summary['valid_acc']))
         
-        return summary, [plot_stats_data, plot_stats_edge, plot_stats_true, plot_stats_pred]
+        return summary, [plot_stats_data, plot_stats_edge, plot_stats_true, plot_stats_pred, count]
 
 def _test():
     t = GNNTrainer(output_dir='./')
