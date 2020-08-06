@@ -38,6 +38,7 @@ print('using device %s'%device)
 
 import logging
 import pdb
+import torchsummary
 
 def main(args):    
     #pdb.set_trace()
@@ -48,9 +49,9 @@ def main(args):
     tv_frac = 0.20
     tv_num = math.ceil(fulllen*tv_frac)
     splits = np.cumsum([fulllen-tv_num,0,tv_num])
-    #pdb.set_trace()  
     splits = splits.astype(np.int32)
     print('fulllen:', fulllen,' splits:', splits)
+    # pdb.set_trace()  
 
     train_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=0,stop=splits[0]).tolist() )
     valid_dataset = torch.utils.data.Subset(full_dataset,np.arange(start=splits[1],stop=splits[2]).tolist() )
@@ -73,7 +74,7 @@ def main(args):
 
     the_weights = np.array([1., 1., 1., 1.]) #[0.017, 1., 1., 10.]
     trainer = GNNTrainer(category_weights = the_weights, 
-                         output_dir='./models/', device=device)
+                         output_dir=args.checkpointDir, device=device)
 
     trainer.logger.setLevel(logging.DEBUG)
     strmH = logging.StreamHandler()
@@ -92,10 +93,15 @@ def main(args):
     trainer.build_model(name=args.model, loss_func=args.loss,
                         optimizer=args.optimizer, learning_rate=args.lr, lr_scaling=lr_scaling,
                         input_dim=num_features, hidden_dim=args.hidden_dim, n_iters=args.n_iters,
-                        output_dim=num_classes)
+                        output_dim=num_classes) 
     
     trainer.print_model_summary()
-       
+
+    model_parameters = filter(lambda p: p.requires_grad, trainer.model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print('Total trainable parameters: ', params)
+    # pdb.set_trace()
+
     train_summary = trainer.train(train_loader, n_epochs, valid_data_loader=valid_loader)
     
     print(train_summary)
@@ -120,8 +126,10 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', default=64, type=int, help='Latent space size.')
     parser.add_argument('--n_iters', default=6, type=int, help='Number of times to iterate the graph.')
     parser.add_argument('--dataset', '-d', default='single_photon')
-    parser.add_argument('--logger', '-g', default='./logs/ftrainlogs_002.txt')
     
+    parser.add_argument('--logger', '-g', default='./logs/ftrainlogs_smallWidth_full.txt')
+    parser.add_argument('--checkpointDir', default='./models/')
+
     args = parser.parse_args()
     main(args)
                                                 
