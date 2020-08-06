@@ -85,6 +85,7 @@ def main(args):
 
     # load model definition
     the_weights = np.array([1., 1., 1., 1.]) #[0.017, 1., 1., 10.]
+    
     tester = GNNTrainer(category_weights = the_weights, 
                         output_dir='./models/', device=device)
 
@@ -109,7 +110,12 @@ def main(args):
 
     del tester
         
-    data, edge, true, pred = plot_stats 
+    data, edge, true, pred , count = plot_stats 
+    pdb.set_trace()
+    print(test_summary)
+    print('class counts')
+    print(count)
+
 
     columns = ['Pred_Noise', 'Pred_Hadron', 'Pred_EM', 'Pred_MIP']
     rows    = ['True_Noise', 'True_Hadron', 'True_EM', 'True_MIP']
