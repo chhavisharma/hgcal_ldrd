@@ -72,7 +72,6 @@ class EdgeNetWithCategories(nn.Module):
 
 '''
 
-
 class EdgeNetWithCategories(nn.Module):
 ####    class EdgeNetWithCategoriesJittable(nn.Module):
 
@@ -81,6 +80,8 @@ class EdgeNetWithCategories(nn.Module):
         super(EdgeNetWithCategories, self).__init__()
 
         self.datanorm = nn.Parameter(norm)
+        '''Fix from earlier models - Do not learn datanorm'''
+        self.datanorm.requires_grad = False
     
         start_width = 2 * (hidden_dim + input_dim)
         middle_width = (3 * hidden_dim + 2*input_dim) // 2
